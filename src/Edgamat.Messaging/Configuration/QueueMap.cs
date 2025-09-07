@@ -1,5 +1,5 @@
 namespace Edgamat.Messaging.Configuration;
 
-public class QueueMap : Dictionary<string, Type>
+public class QueueMap : Dictionary<string, QueueDetails>
 {
 }

@@ -11,7 +11,7 @@ public class AzureServiceBusBuilder
     private readonly IServiceCollection _services;
     private IConfiguration? _configuration;
     private string? _configurationSection;
-    private readonly QueueMap _queueConsumers = new();
+    private readonly QueueMap _queueMap = new();
 
     public AzureServiceBusBuilder(IServiceCollection services)
     {
@@ -35,46 +35,57 @@ public class AzureServiceBusBuilder
         return this;
     }
 
-    public AzureServiceBusBuilder AddConsumer<TConsumer>(string queueName) where TConsumer : class, IConsumer
+    public AzureServiceBusBuilder AddConsumer<TConsumer>(string queueName, int maxCompetingConsumers = 1, int maxDeliveryAttempts = 3) where TConsumer : class, IConsumer
     {
         _services.AddScoped<TConsumer>();
-        _queueConsumers.Add(queueName, typeof(TConsumer));
+
+        _queueMap.Add(queueName, new QueueDetails
+        {
+            ConsumerType = typeof(TConsumer),
+            MaxCompetingConsumers = maxCompetingConsumers,
+            MaxDeliveryAttempts = maxDeliveryAttempts
+        });
 
         return this;
     }
 
-    public AzureServiceBusBuilder AddConsumer<TConsumer, TMessage>(string queueName)
-        where TConsumer : class, IConsumer<TMessage>
-        where TMessage : class
+    public AzureServiceBusBuilder AddConsumer<TConsumer>(string queueName) where TConsumer : class, IConsumer
     {
-        _services.AddScoped<IConsumer<TMessage>, TConsumer>();
-        _queueConsumers.Add(queueName, typeof(TConsumer));
-
-        return this;
+        return AddConsumer<TConsumer>(queueName, Environment.ProcessorCount);
     }
 
     public IServiceCollection Build()
     {
-        if (_configuration != null && _configurationSection != null)
+        if (_configuration == null || _configurationSection == null)
+            throw new AzureServiceBusConfigurationException("Configuration and ConfigurationSection must be set.");
+
+        var settings = new AzureServiceBusConfiguration();
+        _configuration.GetSection(_configurationSection).Bind(settings);
+        _services.AddSingleton(settings);
+
+        // Register enabled consumers from configuration
+        foreach (var queue in settings.Queues.Where(q => q.Enabled))
         {
-            _services.Configure<AzureServiceBusConfiguration>(_configuration.GetSection(_configurationSection));
+            var consumerType = Type.GetType(queue.ConsumerType)
+                ?? throw new AzureServiceBusConfigurationException($"Could not load consumer type '{queue.ConsumerType}' for queue '{queue.QueueName}'");
+
+            _services.AddScoped(consumerType);
+
+            _queueMap.Add(queue.QueueName, new QueueDetails
+            {
+                ConsumerType = consumerType,
+                MaxCompetingConsumers = queue.MaxCompetingConsumers,
+                MaxDeliveryAttempts = queue.MaxDeliveryAttempts
+            });
         }
 
         _services.AddSingleton(provider =>
         {
-            var options = provider.GetRequiredService<IOptions<AzureServiceBusConfiguration>>().Value;
-            return new ServiceBusClient(options.ConnectionString);
+            var settings = provider.GetRequiredService<AzureServiceBusConfiguration>();
+            return new ServiceBusClient(settings.ConnectionString);
         });
 
-        _services.AddSingleton(_queueConsumers);
-
-        foreach (var _queueConsumer in _queueConsumers)
-        {
-            var messageType = _queueConsumer.Value?.BaseType?.GenericTypeArguments[0] ?? throw new AzureServiceBusConfigurationException($"Could not determine message type for consumer '{_queueConsumer.Value?.FullName}'");
-
-            var messageConsumerType = typeof(IConsumer<>).MakeGenericType(messageType);
-            _services.AddScoped(messageConsumerType, _queueConsumer.Value);
-        }
+        _services.AddSingleton(_queueMap);
 
         return _services;
     }

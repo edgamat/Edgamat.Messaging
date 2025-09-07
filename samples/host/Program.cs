@@ -3,8 +3,9 @@ using Azure.Messaging.ServiceBus;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Edgamat.Messaging;
 using Edgamat.Messaging.Configuration;
+
+using Edgamat.Messaging.Samples.Host;
 
 var host = Host.CreateDefaultBuilder(args)
     .ConfigureAppConfiguration((ctx, cfg) =>
@@ -15,7 +16,7 @@ var host = Host.CreateDefaultBuilder(args)
     {
         var builder = new AzureServiceBusBuilder(services);
         builder.WithConfiguration(ctx.Configuration);
-        builder.AddConsumer<MyMessageConsumer>("queue.1");
+        //builder.AddConsumer<MyMessageConsumer>("queue.1");
         builder.AddBusConsumersHostedService();
         builder.Build();
     })
@@ -24,16 +25,7 @@ var host = Host.CreateDefaultBuilder(args)
 await host.RunAsync();
 
 // sample message and consumer implementation ---------------------------------
-public record MyMessage(int Batch, int Message);
 
-public class MyMessageConsumer : JsonConsumer<MyMessage>
-{
-    public override Task ConsumeMessageAsync(MyMessage message, CancellationToken token)
-    {
-        Console.WriteLine($"Consumed message: {message.Batch} - {message.Message}");
-        return Task.CompletedTask;
-    }
-}
 
 // // hosted service that wires ServiceBus processors to IConsumer<T> ----------------
 // public class ServiceBusConsumersHostedService : IHostedService
