@@ -11,7 +11,7 @@ public class AzureServiceBusBuilder
     private readonly IServiceCollection _services;
     private IConfiguration? _configuration;
     private string? _configurationSection;
-    private readonly QueueMap _queueMap = new();
+    private readonly QueueConsumerMap _queueMap = new();
 
     public AzureServiceBusBuilder(IServiceCollection services)
     {
@@ -37,14 +37,7 @@ public class AzureServiceBusBuilder
 
     public AzureServiceBusBuilder AddConsumer<TConsumer>(string queueName, int maxCompetingConsumers = 1, int maxDeliveryAttempts = 3) where TConsumer : class, IConsumer
     {
-        _services.AddScoped<TConsumer>();
-
-        _queueMap.Add(queueName, new QueueDetails
-        {
-            ConsumerType = typeof(TConsumer),
-            MaxCompetingConsumers = maxCompetingConsumers,
-            MaxDeliveryAttempts = maxDeliveryAttempts
-        });
+        MapConsumerToQueue(typeof(TConsumer), queueName, maxCompetingConsumers, maxDeliveryAttempts);
 
         return this;
     }
@@ -69,15 +62,10 @@ public class AzureServiceBusBuilder
             var consumerType = Type.GetType(queue.ConsumerType)
                 ?? throw new AzureServiceBusConfigurationException($"Could not load consumer type '{queue.ConsumerType}' for queue '{queue.QueueName}'");
 
-            _services.AddScoped(consumerType);
-
-            _queueMap.Add(queue.QueueName, new QueueDetails
-            {
-                ConsumerType = consumerType,
-                MaxCompetingConsumers = queue.MaxCompetingConsumers,
-                MaxDeliveryAttempts = queue.MaxDeliveryAttempts
-            });
+            MapConsumerToQueue(consumerType, queue.QueueName, queue.MaxCompetingConsumers, queue.MaxDeliveryAttempts);
         }
+
+        _services.AddSingleton(_queueMap);
 
         _services.AddSingleton(provider =>
         {
@@ -85,8 +73,21 @@ public class AzureServiceBusBuilder
             return new ServiceBusClient(settings.ConnectionString);
         });
 
-        _services.AddSingleton(_queueMap);
-
         return _services;
+    }
+
+    private void MapConsumerToQueue(Type consumerType, string queueName, int maxCompetingConsumers, int maxDeliveryAttempts)
+    {
+        if (!typeof(IConsumer).IsAssignableFrom(consumerType))
+            throw new AzureServiceBusConfigurationException($"Consumer type '{consumerType.FullName}' does not implement IConsumer interface.");
+
+        _services.AddScoped(consumerType);
+
+        _queueMap.Add(queueName, new QueueDetails
+        {
+            ConsumerType = consumerType,
+            MaxCompetingConsumers = maxCompetingConsumers,
+            MaxDeliveryAttempts = maxDeliveryAttempts
+        });
     }
 }

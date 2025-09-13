@@ -16,7 +16,7 @@ public class ServiceBusConsumersHostedService : IHostedService
     private readonly IServiceProvider _provider;
     private readonly List<ServiceBusProcessor> _processors = [];
 
-    private readonly QueueMap _queueMap;
+    private readonly QueueConsumerMap _queueMap;
 
 
     public ServiceBusConsumersHostedService(
@@ -25,13 +25,13 @@ public class ServiceBusConsumersHostedService : IHostedService
     {
         _client = client;
         _provider = provider;
-        _queueMap = _provider.GetRequiredService<QueueMap>();
+        _queueMap = _provider.GetRequiredService<QueueConsumerMap>();
     }
 
     public Task StartAsync(CancellationToken cancellationToken)
     {
         var logger = _provider.GetRequiredService<ILogger<ServiceBusConsumersHostedService>>();
-        logger.LogInformation("Starting ServiceBusConsumersHostedService with {_queueMapCount} queue(s)", _queueMap.Count);
+        logger.LogInformation("Starting ServiceBusConsumersHostedService");
 
         foreach (var queueType in _queueMap)
         {
@@ -57,6 +57,11 @@ public class ServiceBusConsumersHostedService : IHostedService
                 };
 
                 using var scope = _provider.CreateScope();
+
+                var logger = scope.ServiceProvider.GetRequiredService<ILogger<ServiceBusConsumersHostedService>>();
+                logger.LogInformation("Message properties: {MessageContext}", JsonSerializer.Serialize(args.Message.ApplicationProperties));
+                logger.LogInformation("Received message {MessageId} on queue {QueueName}, DeliveryAttempt {DeliveryAttempt}/{MaxDeliveryAttempts}",
+                    messageContext.MessageId, messageContext.QueueName, messageContext.DeliveryAttempt, messageContext.MaxDeliveryAttempts);
 
                 var consumer = (IConsumer<MessageContext>)scope.ServiceProvider.GetRequiredService(queueType.Value.ConsumerType);
 
