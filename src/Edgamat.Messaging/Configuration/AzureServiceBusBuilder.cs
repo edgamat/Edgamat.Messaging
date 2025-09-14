@@ -20,7 +20,7 @@ public class AzureServiceBusBuilder
 
     public AzureServiceBusBuilder WithConfiguration(
         IConfiguration configuration,
-        string configurationSection = AzureServiceBusConfiguration.DefaultConfigurationSection)
+        string configurationSection = AzureServiceBusSettings.DefaultConfigurationSection)
     {
         _configuration = configuration;
         _configurationSection = configurationSection;
@@ -52,7 +52,7 @@ public class AzureServiceBusBuilder
         if (_configuration == null || _configurationSection == null)
             throw new AzureServiceBusConfigurationException("Configuration and ConfigurationSection must be set.");
 
-        var settings = new AzureServiceBusConfiguration();
+        var settings = new AzureServiceBusSettings();
         _configuration.GetSection(_configurationSection).Bind(settings);
         _services.AddSingleton(settings);
 
@@ -69,7 +69,7 @@ public class AzureServiceBusBuilder
 
         _services.AddSingleton(provider =>
         {
-            var settings = provider.GetRequiredService<AzureServiceBusConfiguration>();
+            var settings = provider.GetRequiredService<AzureServiceBusSettings>();
             return new ServiceBusClient(settings.ConnectionString);
         });
 
@@ -78,7 +78,7 @@ public class AzureServiceBusBuilder
 
     private void MapConsumerToQueue(Type consumerType, string queueName, int maxCompetingConsumers, int maxDeliveryAttempts)
     {
-        if (!typeof(IConsumer).IsAssignableFrom(consumerType))
+        if (!typeof(IConsumer<MessageContext>).IsAssignableFrom(consumerType))
             throw new AzureServiceBusConfigurationException($"Consumer type '{consumerType.FullName}' does not implement IConsumer interface.");
 
         _services.AddScoped(consumerType);

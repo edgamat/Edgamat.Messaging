@@ -6,9 +6,9 @@ using Microsoft.Extensions.Logging;
 
 public abstract class JsonConsumer<T> : IConsumer<MessageContext> where T : class
 {
-    private readonly ILogger _logger;
+    private readonly ILogger<JsonConsumer<T>> _logger;
 
-    public JsonConsumer(ILogger logger)
+    public JsonConsumer(ILogger<JsonConsumer<T>> logger)
     {
         _logger = logger;
     }

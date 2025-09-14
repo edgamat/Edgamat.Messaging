@@ -19,6 +19,10 @@ public class MyMessageConsumer : JsonConsumer<MyMessage>
     {
         _logger.LogInformation("Consuming message: {Batch} - {Message}", message.Batch, message.Message);
 
+        // Simulate some processing
+        // await Task.Delay(5000, token);
+
+        // Uncomment to simulate occasional failures
         if (message.Message % 5 == 0)
         {
             // simulate a failure every 5th message

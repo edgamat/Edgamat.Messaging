@@ -1,10 +1,12 @@
 namespace Edgamat.Messaging.Configuration;
 
-public class QueueConfiguration
+public class SubscriptionSettings
 {
-    public string QueueName { get; set; } = string.Empty;
+    public string TopicName { get; set; } = string.Empty;
 
-    public string ConsumerType { get; set; } = string.Empty;
+    public string SubscriptionName { get; set; } = string.Empty;
+
+    public Type ConsumerType { get; set; } = null!;
 
     public int MaxCompetingConsumers { get; set; } = Environment.ProcessorCount;
 
@@ -12,4 +14,3 @@ public class QueueConfiguration
 
     public bool Enabled { get; set; } = true;
 }
-
