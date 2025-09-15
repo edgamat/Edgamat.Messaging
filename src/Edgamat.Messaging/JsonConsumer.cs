@@ -27,7 +27,7 @@ public abstract class JsonConsumer<T> : IConsumer<MessageContext> where T : clas
         {
             if (messageContext.DeliveryAttempt >= messageContext.MaxDeliveryAttempts)
             {
-                _logger.LogError(ex, "Message delivery failed after {DeliveryAttempt} attempts. MessageId: {MessageId}, CorrelationId: {CorrelationId}",
+                _logger.LogError(ex, "Message delivery failed on attempt {DeliveryAttempt}. MessageId: {MessageId}, CorrelationId: {CorrelationId}",
                     messageContext.DeliveryAttempt, messageContext.MessageId, messageContext.CorrelationId);
                 throw;
             }

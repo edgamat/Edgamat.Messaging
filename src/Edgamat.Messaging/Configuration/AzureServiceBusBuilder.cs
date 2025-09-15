@@ -47,6 +47,24 @@ public class AzureServiceBusBuilder
         return AddConsumer<TConsumer>(queueName, Environment.ProcessorCount);
     }
 
+    public AzureServiceBusBuilder AddPublisher()
+    {
+        _services.AddSingleton<IPublisher, JsonPublisher>();
+
+        return this;
+    }
+
+    public AzureServiceBusBuilder AddPublisher(string queueOrTopicName)
+    {
+        _services.AddKeyedSingleton<IKeyedPublisher>(queueOrTopicName, (sp, _) =>
+        {
+            var client = sp.GetRequiredService<ServiceBusClient>();
+            return new KeyedJsonPublisher(client, queueOrTopicName);
+        });
+
+        return this;
+    }
+
     public IServiceCollection Build()
     {
         if (_configuration == null || _configurationSection == null)

@@ -1,5 +1,3 @@
-using System.Text.Json;
-
 using Azure.Messaging.ServiceBus;
 
 using Edgamat.Messaging.Configuration;
@@ -61,9 +59,9 @@ public class ServiceBusConsumersHostedService : IHostedService
 
                 if (args.Message.ApplicationProperties.Count > 0)
                 {
-                    _logger.LogInformation("Message properties: {@ApplicationProperties}", args.Message.ApplicationProperties);
+                    _logger.LogDebug("Message properties: {@ApplicationProperties}", args.Message.ApplicationProperties);
                 }
-                _logger.LogInformation("Received message {MessageId} on queue {QueueName}, DeliveryAttempt {DeliveryAttempt}/{MaxDeliveryAttempts}",
+                _logger.LogDebug("Received message {MessageId} on queue {QueueName}, DeliveryAttempt {DeliveryAttempt}/{MaxDeliveryAttempts}",
                     messageContext.MessageId, messageContext.QueueName, messageContext.DeliveryAttempt, messageContext.MaxDeliveryAttempts);
 
                 var consumer = (IConsumer<MessageContext>)scope.ServiceProvider.GetRequiredService(queueType.Value.ConsumerType);
