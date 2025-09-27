@@ -13,11 +13,11 @@ var configuration = new ConfigurationBuilder()
 
 var services = new ServiceCollection();
 services
-    .AddLogging(configure => configure.SetMinimumLevel(LogLevel.Debug).AddConsole());
+    .AddLogging(configure => configure.SetMinimumLevel(LogLevel.Information).AddConsole());
 
 services.AddAzureServiceBus()
     .WithConfiguration(configuration)
-    .AddPublisher("queue.1")
+    .AddPublisher()
     .AddBusConsumersHostedService()
     .Build();
 
@@ -28,8 +28,10 @@ using (var scope = serviceProvider.CreateScope())
     var scopedServices = scope.ServiceProvider;
     var logger = scopedServices.GetRequiredService<ILogger<Program>>();
     logger.LogInformation("Starting application");
-    var publisher = scopedServices.GetRequiredKeyedService<IKeyedPublisher>("queue.1");
-    var messageId = await publisher.PublishAsync(new MyMessage(1, 1), CancellationToken.None);
+    var publisher = scopedServices.GetRequiredService<IPublisher>();
+    // var publisher = scopedServices.GetRequiredKeyedService<IKeyedPublisher>("queue.1");
+
+    var messageId = await publisher.PublishAsync("queue.1", new MyMessage(1, 1), CancellationToken.None);
     logger.LogInformation("Published message with ID: {messageId}", messageId);
 }
 

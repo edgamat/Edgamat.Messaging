@@ -1,5 +1,7 @@
 using Azure.Messaging.ServiceBus;
 
+using Microsoft.Extensions.Azure;
+
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -49,7 +51,8 @@ public class AzureServiceBusBuilder
 
     public AzureServiceBusBuilder AddPublisher()
     {
-        _services.AddSingleton<IPublisher, JsonPublisher>();
+        //_services.AddScoped<IServiceBusSenderFactory, ServiceBusSenderFactory>();
+        _services.AddScoped<IPublisher, Json3Publisher>();
 
         return this;
     }
@@ -85,10 +88,24 @@ public class AzureServiceBusBuilder
 
         _services.AddSingleton(_queueMap);
 
-        _services.AddSingleton(provider =>
+        // _services.AddSingleton(provider =>
+        // {
+        //     var settings = provider.GetRequiredService<AzureServiceBusSettings>();
+        //     return new ServiceBusClient(settings.ConnectionString);
+        // });
+
+        _services.AddAzureClients(builder =>
         {
-            var settings = provider.GetRequiredService<AzureServiceBusSettings>();
-            return new ServiceBusClient(settings.ConnectionString);
+            builder.AddServiceBusClient(settings.ConnectionString);
+
+            foreach (var queueName in settings.Queues.Where(q => q.Enabled).Select(q => q.QueueName))
+            {
+                builder.AddClient<ServiceBusSender, ServiceBusClientOptions>((_, _, provider) =>
+                    provider
+                        .GetRequiredService<ServiceBusClient>()
+                        .CreateSender(queueName)
+                ).WithName(queueName);
+            }
         });
 
         return _services;
