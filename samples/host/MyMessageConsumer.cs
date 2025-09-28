@@ -15,12 +15,21 @@ public class MyMessageConsumer : JsonConsumer<MyMessage>
         _logger = logger;
     }
 
-    public override Task ConsumeMessageAsync(MyMessage message, CancellationToken token)
+    public override async Task ConsumeMessageAsync(MyMessage message, CancellationToken token)
     {
         _logger.LogInformation("Consuming message: {Batch} - {Message}", message.Batch, message.Message);
 
-        // Simulate some processing
-        // await Task.Delay(5000, token);
+        using (var activity = DiagnosticsConfig.Source.StartActivity("SQLCall1"))
+        {
+            // Simulate some processing
+            await Task.Delay(300, token);
+        }
+
+        using (var activity = DiagnosticsConfig.Source.StartActivity("SQLCall2"))
+        {
+            // Simulate some processing
+            await Task.Delay(200, token);
+        }
 
         // Uncomment to simulate occasional failures
         if (message.Message % 5 == 0)
@@ -30,7 +39,5 @@ public class MyMessageConsumer : JsonConsumer<MyMessage>
         }
 
         _logger.LogInformation("Successfully consumed message: {Batch} - {Message}", message.Batch, message.Message);
-
-        return Task.CompletedTask;
     }
 }

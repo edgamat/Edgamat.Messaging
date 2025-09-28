@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Text.Json;
 
 using Azure.Messaging.ServiceBus;
@@ -148,6 +149,10 @@ public class Json3Publisher : IPublisher
 
     public async Task<string> PublishAsync<T>(string queueOrTopicName, T message, CancellationToken cancellationToken = default) where T : class
     {
+        using var activity = DiagnosticsConfig.Source.StartActivity("MessagePublisher.Publish", ActivityKind.Producer);
+        activity?.SetTag("message.queue", queueOrTopicName);
+        activity?.SetTag("message.type", typeof(T).FullName);
+
         var sender = _factory.CreateClient(queueOrTopicName);
 
         var jsonMessage = JsonSerializer.Serialize(message);
@@ -158,6 +163,8 @@ public class Json3Publisher : IPublisher
         };
 
         await sender.SendMessageAsync(serviceBusMessage, cancellationToken);
+
+        activity?.SetTag("message.id", serviceBusMessage.MessageId);
 
         return serviceBusMessage.MessageId;
     }

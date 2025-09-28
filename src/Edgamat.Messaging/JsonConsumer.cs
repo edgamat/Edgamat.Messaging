@@ -1,5 +1,6 @@
 namespace Edgamat.Messaging;
 
+using System.Diagnostics;
 using System.Text.Json;
 
 using Microsoft.Extensions.Logging;
@@ -13,7 +14,7 @@ public abstract class JsonConsumer<T> : IConsumer<MessageContext> where T : clas
         _logger = logger;
     }
 
-    public Task ConsumeAsync(MessageContext messageContext, CancellationToken token)
+    public async Task ConsumeAsync(MessageContext messageContext, CancellationToken token)
     {
         MessageContext = messageContext;
 
@@ -21,7 +22,7 @@ public abstract class JsonConsumer<T> : IConsumer<MessageContext> where T : clas
 
         try
         {
-            return ConsumeMessageAsync(rawPayload, token);
+            await ConsumeMessageAsync(rawPayload, token);
         }
         catch (Exception ex)
         {
@@ -34,6 +35,16 @@ public abstract class JsonConsumer<T> : IConsumer<MessageContext> where T : clas
 
             _logger.LogWarning(ex, "Message delivery failed on attempt {DeliveryAttempt}. MessageId: {MessageId}, CorrelationId: {CorrelationId}",
                 messageContext.DeliveryAttempt, messageContext.MessageId, messageContext.CorrelationId);
+
+            // add activity for retry delay
+            var delay = TimeSpan.FromSeconds(1);
+            using (var activity = DiagnosticsConfig.Source.StartActivity("RetryDelay", ActivityKind.Internal))
+            {
+                activity?.SetTag("retry.attempt", messageContext.DeliveryAttempt);
+                activity?.SetTag("retry.delay", delay);
+                await Task.Delay(delay, token);
+            }
+
             throw;
         }
     }

@@ -1,3 +1,5 @@
+using System.Diagnostics;
+
 using Azure.Messaging.ServiceBus;
 
 using Edgamat.Messaging.Configuration;
@@ -55,6 +57,12 @@ public class ServiceBusConsumersHostedService : IHostedService
                     MaxDeliveryAttempts = queueType.Value.MaxDeliveryAttempts
                 };
 
+                if (args.Message.ApplicationProperties.TryGetValue("Diagnostic-Id", out var objectId) && objectId is string diagnosticId)
+                {
+                    messageContext.DiagnosticId = diagnosticId;
+                    _logger.LogDebug("Linking to existing activity with Diagnostic-Id: {DiagnosticId}", diagnosticId);
+                }
+
                 using var scope = _provider.CreateScope();
 
                 if (args.Message.ApplicationProperties.Count > 0)
@@ -65,6 +73,12 @@ public class ServiceBusConsumersHostedService : IHostedService
                     messageContext.MessageId, messageContext.QueueName, messageContext.DeliveryAttempt, messageContext.MaxDeliveryAttempts);
 
                 var consumer = (IConsumer<MessageContext>)scope.ServiceProvider.GetRequiredService(queueType.Value.ConsumerType);
+
+                var parentContext = ActivityContext.TryParse(messageContext.DiagnosticId, null, out var parsedContext)
+                    ? parsedContext
+                    : default;
+
+                using var activity = DiagnosticsConfig.Source.StartActivity("MessageConsumer.Consume", ActivityKind.Consumer, parentContext);
 
                 await consumer.ConsumeAsync(messageContext, args.CancellationToken);
 
