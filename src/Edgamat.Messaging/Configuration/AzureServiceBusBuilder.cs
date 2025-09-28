@@ -51,19 +51,7 @@ public class AzureServiceBusBuilder
 
     public AzureServiceBusBuilder AddPublisher()
     {
-        //_services.AddScoped<IServiceBusSenderFactory, ServiceBusSenderFactory>();
-        _services.AddScoped<IPublisher, Json3Publisher>();
-
-        return this;
-    }
-
-    public AzureServiceBusBuilder AddPublisher(string queueOrTopicName)
-    {
-        _services.AddKeyedSingleton<IKeyedPublisher>(queueOrTopicName, (sp, _) =>
-        {
-            var client = sp.GetRequiredService<ServiceBusClient>();
-            return new KeyedJsonPublisher(client, queueOrTopicName);
-        });
+        _services.AddScoped<IPublisher, JsonPublisher>();
 
         return this;
     }
@@ -87,12 +75,6 @@ public class AzureServiceBusBuilder
         }
 
         _services.AddSingleton(_queueMap);
-
-        // _services.AddSingleton(provider =>
-        // {
-        //     var settings = provider.GetRequiredService<AzureServiceBusSettings>();
-        //     return new ServiceBusClient(settings.ConnectionString);
-        // });
 
         _services.AddAzureClients(builder =>
         {

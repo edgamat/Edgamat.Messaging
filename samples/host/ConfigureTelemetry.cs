@@ -86,10 +86,7 @@ public static class ConfigureTelemetry
                 tracing.AddSource(builder.Environment.ApplicationName);
 
                 // We want to capture custom traces from our messaging library
-                tracing.AddSource("Edgamat.Messaging");
-
-                // We want to capture traces from Azure Service Bus
-                // tracing.AddSource("Azure.*");
+                tracing.AddSource(Edgamat.Messaging.DiagnosticsConfig.ServiceName);
 
                 if (builder.Environment.IsDevelopment())
                 {
