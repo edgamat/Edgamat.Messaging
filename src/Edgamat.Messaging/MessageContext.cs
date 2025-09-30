@@ -17,4 +17,6 @@ public class MessageContext
     public int DeliveryAttempt { get; set; }
 
     public int MaxDeliveryAttempts { get; set; }
+
+    public TimeSpan RetryDelay { get; set; } = TimeSpan.Zero;
 }

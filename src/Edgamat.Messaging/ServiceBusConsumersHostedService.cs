@@ -114,6 +114,7 @@ public class ServiceBusConsumersHostedService : IHostedService
             CorrelationId = args.Message.CorrelationId,
             DeliveryAttempt = args.Message.DeliveryCount,
             MaxDeliveryAttempts = maxDeliveryAttempts,
+            RetryDelay = TimeSpan.FromSeconds(1)
         };
 
         if (args.Message.ApplicationProperties.TryGetValue("Diagnostic-Id", out var objectId) && objectId is string diagnosticId)

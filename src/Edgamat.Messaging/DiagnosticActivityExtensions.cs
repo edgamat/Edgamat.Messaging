@@ -28,9 +28,16 @@ public static class DiagnosticActivityExtensions
 
         activity.SetTag("messaging.system", "edgamat.azureservicebus");
         activity.SetTag("messaging.destination.name", messageContext.QueueOrTopicName);
+
+        if (!string.IsNullOrWhiteSpace(messageContext.SubscriptionName))
+        {
+            activity.SetTag("messaging.destination.subscription.name", messageContext.SubscriptionName);
+        }
+
         activity.SetTag("messaging.message.type", typeof(T).FullName);
         activity.SetTag("messaging.message.id", messageContext.MessageId);
         activity.SetTag("messaging.delivery_attempt", messageContext.DeliveryAttempt);
         activity.SetTag("messaging.max_delivery_attempts", messageContext.MaxDeliveryAttempts);
+
     }
 }

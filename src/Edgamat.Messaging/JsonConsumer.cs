@@ -47,12 +47,11 @@ public abstract class JsonConsumer<T> : IConsumer<MessageContext> where T : clas
                 messageContext.DeliveryAttempt, messageContext.MessageId, messageContext.CorrelationId);
 
             // add activity for retry delay
-            var delay = TimeSpan.FromSeconds(1);
             using (var retryActivity = DiagnosticsConfig.Source.StartActivity("RetryDelay", ActivityKind.Internal))
             {
-                retryActivity?.SetTag("retry.attempt", messageContext.DeliveryAttempt);
-                retryActivity?.SetTag("retry.delay", delay);
-                await Task.Delay(delay, token);
+                retryActivity?.EnrichWithContext<T>(messageContext);
+                retryActivity?.SetTag("messaging.retry.delay", messageContext.RetryDelay.TotalMilliseconds);
+                await Task.Delay(messageContext.RetryDelay, token);
             }
 
             throw;
