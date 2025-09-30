@@ -6,7 +6,7 @@ public class SubscriptionSettings
 
     public string SubscriptionName { get; set; } = string.Empty;
 
-    public Type ConsumerType { get; set; } = null!;
+    public string ConsumerType { get; set; } = string.Empty;
 
     public int MaxCompetingConsumers { get; set; } = Environment.ProcessorCount;
 

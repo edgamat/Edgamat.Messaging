@@ -28,7 +28,7 @@ public class Worker : BackgroundService
             using var scope = _serviceProvider.CreateScope();
 
             // start a new root activity for this operation
-            using (var activity = DiagnosticsConfig.Source.StartActivity("DoWork"))
+            using (var activity = DiagnosticsConfig.Source.StartActivity("DoWorkQueue", ActivityKind.Internal))
             {
                 messageCount++;
 
@@ -38,6 +38,23 @@ public class Worker : BackgroundService
                 var publisher = scope.ServiceProvider.GetRequiredService<IPublisher>();
 
                 var messageId = await publisher.PublishAsync("queue.1", new MyMessage(1, messageCount), CancellationToken.None);
+
+                activity?.SetTag("message.id", messageId);
+
+                _logger.LogInformation("Published message with ID: {messageId}", messageId);
+            }
+
+            // start a new root activity for this operation
+            using (var activity = DiagnosticsConfig.Source.StartActivity("DoWorkTopic", ActivityKind.Internal))
+            {
+                messageCount++;
+
+                activity?.SetTag("message.batch", 1);
+                activity?.SetTag("message.number", messageCount);
+
+                var publisher = scope.ServiceProvider.GetRequiredService<IPublisher>();
+
+                var messageId = await publisher.PublishAsync("topic.1", new MySubscriptionMessage(1, messageCount), CancellationToken.None);
 
                 activity?.SetTag("message.id", messageId);
 

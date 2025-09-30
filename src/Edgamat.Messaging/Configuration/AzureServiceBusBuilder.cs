@@ -14,6 +14,7 @@ public class AzureServiceBusBuilder
     private IConfiguration? _configuration;
     private string? _configurationSection;
     private readonly QueueConsumerMap _queueMap = new();
+    private readonly SubscriptionConsumerMap _subscriptionMap = new();
 
     public AzureServiceBusBuilder(IServiceCollection services)
     {
@@ -49,6 +50,18 @@ public class AzureServiceBusBuilder
         return AddConsumer<TConsumer>(queueName, Environment.ProcessorCount);
     }
 
+    public AzureServiceBusBuilder AddConsumer<TConsumer>(string topicName, string subscriptionName, int maxCompetingConsumers = 1, int maxDeliveryAttempts = 3) where TConsumer : class, IConsumer
+    {
+        MapConsumerToSubscription(typeof(TConsumer), topicName, subscriptionName, maxCompetingConsumers, maxDeliveryAttempts);
+
+        return this;
+    }
+
+    public AzureServiceBusBuilder AddConsumer<TConsumer>(string topicName, string subscriptionName) where TConsumer : class, IConsumer
+    {
+        return AddConsumer<TConsumer>(topicName, subscriptionName, Environment.ProcessorCount);
+    }
+
     public AzureServiceBusBuilder AddPublisher()
     {
         _services.AddScoped<IPublisher, JsonPublisher>();
@@ -74,7 +87,18 @@ public class AzureServiceBusBuilder
             MapConsumerToQueue(consumerType, queue.QueueName, queue.MaxCompetingConsumers, queue.MaxDeliveryAttempts);
         }
 
+        // Register enabled consumers from configuration
+        foreach (var subscription in settings.Subscriptions.Where(q => q.Enabled))
+        {
+            var consumerType = Type.GetType(subscription.ConsumerType)
+                ?? throw new AzureServiceBusConfigurationException($"Could not load consumer type '{subscription.ConsumerType}' for subscription '{subscription.SubscriptionName}'");
+
+            MapConsumerToSubscription(consumerType, subscription.TopicName, subscription.SubscriptionName, subscription.MaxCompetingConsumers, subscription.MaxDeliveryAttempts);
+        }
+
         _services.AddSingleton(_queueMap);
+
+        _services.AddSingleton(_subscriptionMap);
 
         _services.AddAzureClients(builder =>
         {
@@ -87,6 +111,15 @@ public class AzureServiceBusBuilder
                         .GetRequiredService<ServiceBusClient>()
                         .CreateSender(queueName)
                 ).WithName(queueName);
+            }
+
+            foreach (var topicName in settings.Subscriptions.Where(s => s.Enabled).Select(s => s.TopicName))
+            {
+                builder.AddClient<ServiceBusSender, ServiceBusClientOptions>((_, _, provider) =>
+                    provider
+                        .GetRequiredService<ServiceBusClient>()
+                        .CreateSender(topicName)
+                ).WithName(topicName);
             }
         });
 
@@ -101,6 +134,21 @@ public class AzureServiceBusBuilder
         _services.AddScoped(consumerType);
 
         _queueMap.Add(queueName, new QueueDetails
+        {
+            ConsumerType = consumerType,
+            MaxCompetingConsumers = maxCompetingConsumers,
+            MaxDeliveryAttempts = maxDeliveryAttempts
+        });
+    }
+
+    private void MapConsumerToSubscription(Type consumerType, string topicName, string subscriptionName, int maxCompetingConsumers, int maxDeliveryAttempts)
+    {
+        if (!typeof(IConsumer<MessageContext>).IsAssignableFrom(consumerType))
+            throw new AzureServiceBusConfigurationException($"Consumer type '{consumerType.FullName}' does not implement IConsumer interface.");
+
+        _services.AddScoped(consumerType);
+
+        _subscriptionMap.Add((topicName, subscriptionName), new SubscriptionDetails
         {
             ConsumerType = consumerType,
             MaxCompetingConsumers = maxCompetingConsumers,
