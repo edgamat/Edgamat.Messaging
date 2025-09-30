@@ -52,7 +52,7 @@ public class ServiceBusConsumersHostedService : IHostedService
                 queueType.Key, queueType.Value.ConsumerType.FullName, queueType.Value.MaxCompetingConsumers);
 
             processor.ProcessMessageAsync += async args =>
-                await ProcessMessageAsync(args, queueType.Key, queueType.Value.MaxDeliveryAttempts, queueType.Value.ConsumerType);
+                await ProcessMessageAsync(args, queueType.Key, null, queueType.Value.MaxDeliveryAttempts, queueType.Value.ConsumerType);
 
             processor.ProcessErrorAsync += async args =>
                 await ProcessErrorAsync(args, queueType.Key);
@@ -74,11 +74,11 @@ public class ServiceBusConsumersHostedService : IHostedService
                 AutoCompleteMessages = false
             });
 
-            _logger.LogInformation("Starting processor for subscription '{SubscriptionName}' on topic '{TopicName}' {ConsumerType}, {MaxCompetingConsumers}",
-                subscriptionType.Key.SubscriptionName, subscriptionType.Key.TopicName, subscriptionType.Value.ConsumerType.FullName, subscriptionType.Value.MaxCompetingConsumers);
+            _logger.LogInformation("Starting processor for topic '{TopicName}' using subscription '{SubscriptionName}' {ConsumerType}, {MaxCompetingConsumers}",
+                subscriptionType.Key.TopicName, subscriptionType.Key.SubscriptionName, subscriptionType.Value.ConsumerType.FullName, subscriptionType.Value.MaxCompetingConsumers);
 
             processor.ProcessMessageAsync += async args =>
-                await ProcessMessageAsync(args, subscriptionType.Key.TopicName, subscriptionType.Value.MaxDeliveryAttempts, subscriptionType.Value.ConsumerType);
+                await ProcessMessageAsync(args, subscriptionType.Key.TopicName, subscriptionType.Key.SubscriptionName, subscriptionType.Value.MaxDeliveryAttempts, subscriptionType.Value.ConsumerType);
 
             processor.ProcessErrorAsync += async args =>
                 await ProcessErrorAsync(args, subscriptionType.Key.TopicName);
@@ -101,17 +101,19 @@ public class ServiceBusConsumersHostedService : IHostedService
     private async Task ProcessMessageAsync(
         ProcessMessageEventArgs args,
         string queueOrTopicName,
+        string? subscriptionName,
         int maxDeliveryAttempts,
         Type consumerType)
     {
         var messageContext = new MessageContext
         {
-            QueueName = queueOrTopicName,
+            QueueOrTopicName = queueOrTopicName,
+            SubscriptionName = subscriptionName,
             RawPayload = args.Message.Body,
             MessageId = args.Message.MessageId,
             CorrelationId = args.Message.CorrelationId,
             DeliveryAttempt = args.Message.DeliveryCount,
-            MaxDeliveryAttempts = maxDeliveryAttempts
+            MaxDeliveryAttempts = maxDeliveryAttempts,
         };
 
         if (args.Message.ApplicationProperties.TryGetValue("Diagnostic-Id", out var objectId) && objectId is string diagnosticId)
@@ -127,17 +129,9 @@ public class ServiceBusConsumersHostedService : IHostedService
             _logger.LogDebug("Message properties: {@ApplicationProperties}", args.Message.ApplicationProperties);
         }
         _logger.LogDebug("Received message {MessageId} on queue {QueueName}, DeliveryAttempt {DeliveryAttempt}/{MaxDeliveryAttempts}",
-            messageContext.MessageId, messageContext.QueueName, messageContext.DeliveryAttempt, messageContext.MaxDeliveryAttempts);
+            messageContext.MessageId, messageContext.QueueOrTopicName, messageContext.DeliveryAttempt, messageContext.MaxDeliveryAttempts);
 
         var consumer = (IConsumer<MessageContext>)scope.ServiceProvider.GetRequiredService(consumerType);
-
-        var parentContext = ActivityContext.TryParse(messageContext.DiagnosticId, null, out var parsedContext)
-            ? parsedContext
-            : default;
-
-        using var activity = DiagnosticsConfig.Source.StartActivity("MessageConsumer.Consume", ActivityKind.Consumer, parentContext);
-        activity?.SetTag("message.queue", messageContext.QueueName);
-        activity?.SetTag("message.id", messageContext.MessageId);
 
         await consumer.ConsumeAsync(messageContext, args.CancellationToken);
 

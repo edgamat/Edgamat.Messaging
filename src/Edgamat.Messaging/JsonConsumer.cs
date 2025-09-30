@@ -16,18 +16,28 @@ public abstract class JsonConsumer<T> : IConsumer<MessageContext> where T : clas
 
     public async Task ConsumeAsync(MessageContext messageContext, CancellationToken token)
     {
-        MessageContext = messageContext;
+        var parentContext = ActivityContext.TryParse(messageContext.DiagnosticId, null, out var parsedContext)
+            ? parsedContext
+            : default;
 
-        var rawPayload = messageContext.RawPayload.ToObjectFromJson<T>() ?? throw new JsonException("Unable to deserialize message body.");
+        using var activity = DiagnosticsConfig.Source.StartActivity("MessageConsumer.Consume", ActivityKind.Consumer, parentContext);
+        activity.EnrichWithContext<T>(messageContext);
+
+        MessageContext = messageContext;
 
         try
         {
+            var rawPayload = messageContext.RawPayload.ToObjectFromJson<T>() ?? throw new JsonException("Unable to deserialize message body.");
+
             await ConsumeMessageAsync(rawPayload, token);
         }
         catch (Exception ex)
         {
             if (messageContext.DeliveryAttempt >= messageContext.MaxDeliveryAttempts)
             {
+                activity?.SetStatus(ActivityStatusCode.Error, "Failure to consume message");
+                activity?.AddException(ex);
+
                 _logger.LogError(ex, "Message delivery failed on attempt {DeliveryAttempt}. MessageId: {MessageId}, CorrelationId: {CorrelationId}",
                     messageContext.DeliveryAttempt, messageContext.MessageId, messageContext.CorrelationId);
                 throw;
@@ -38,10 +48,10 @@ public abstract class JsonConsumer<T> : IConsumer<MessageContext> where T : clas
 
             // add activity for retry delay
             var delay = TimeSpan.FromSeconds(1);
-            using (var activity = DiagnosticsConfig.Source.StartActivity("RetryDelay", ActivityKind.Internal))
+            using (var retryActivity = DiagnosticsConfig.Source.StartActivity("RetryDelay", ActivityKind.Internal))
             {
-                activity?.SetTag("retry.attempt", messageContext.DeliveryAttempt);
-                activity?.SetTag("retry.delay", delay);
+                retryActivity?.SetTag("retry.attempt", messageContext.DeliveryAttempt);
+                retryActivity?.SetTag("retry.delay", delay);
                 await Task.Delay(delay, token);
             }
 

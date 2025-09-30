@@ -19,22 +19,31 @@ public class JsonPublisher : IPublisher
     public async Task<string> PublishAsync<T>(string queueOrTopicName, T message, CancellationToken cancellationToken = default) where T : class
     {
         using var activity = DiagnosticsConfig.Source.StartActivity("MessagePublisher.Publish", ActivityKind.Producer);
-        activity?.SetTag("message.queue", queueOrTopicName);
-        activity?.SetTag("message.type", typeof(T).FullName);
+        activity.EnrichWithContext<T>(queueOrTopicName);
 
-        var sender = _factory.CreateClient(queueOrTopicName);
-
-        var jsonMessage = JsonSerializer.Serialize(message);
-        var serviceBusMessage = new ServiceBusMessage(jsonMessage)
+        try
         {
-            ContentType = "application/json",
-            MessageId = Guid.NewGuid().ToString(),
-        };
+            var sender = _factory.CreateClient(queueOrTopicName);
 
-        await sender.SendMessageAsync(serviceBusMessage, cancellationToken);
+            var jsonMessage = JsonSerializer.Serialize(message);
+            var serviceBusMessage = new ServiceBusMessage(jsonMessage)
+            {
+                ContentType = "application/json",
+                MessageId = Guid.NewGuid().ToString(),
+            };
 
-        activity?.SetTag("message.id", serviceBusMessage.MessageId);
+            await sender.SendMessageAsync(serviceBusMessage, cancellationToken);
 
-        return serviceBusMessage.MessageId;
+            activity.EnrichWithMessage(serviceBusMessage);
+
+            return serviceBusMessage.MessageId;
+        }
+        catch (Exception ex)
+        {
+            activity?.SetStatus(ActivityStatusCode.Error, "Failure to publish message");
+            activity?.AddException(ex);
+
+            throw;
+        }
     }
 }

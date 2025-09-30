@@ -2,7 +2,9 @@ namespace Edgamat.Messaging;
 
 public class MessageContext
 {
-    public string QueueName { get; set; } = string.Empty;
+    public string QueueOrTopicName { get; set; } = string.Empty;
+
+    public string? SubscriptionName { get; set; }
 
     public BinaryData RawPayload { get; set; } = default!;
 
