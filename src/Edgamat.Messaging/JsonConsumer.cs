@@ -16,12 +16,7 @@ public abstract class JsonConsumer<T> : IConsumer<MessageContext> where T : clas
 
     public async Task ConsumeAsync(MessageContext messageContext, CancellationToken token)
     {
-        var parentContext = ActivityContext.TryParse(messageContext.DiagnosticId, null, out var parsedContext)
-            ? parsedContext
-            : default;
-
-        using var activity = DiagnosticsConfig.Source.StartActivity("MessageConsumer.Consume", ActivityKind.Consumer, parentContext);
-        activity.EnrichWithContext<T>(messageContext);
+        using var activity = CreateDiagnosticActivity(messageContext);
 
         MessageContext = messageContext;
 
@@ -56,6 +51,18 @@ public abstract class JsonConsumer<T> : IConsumer<MessageContext> where T : clas
 
             throw;
         }
+    }
+
+    private static Activity? CreateDiagnosticActivity(MessageContext messageContext)
+    {
+        var parentContext = ActivityContext.TryParse(messageContext.DiagnosticId, null, out var parsedContext)
+            ? parsedContext
+            : default;
+
+        var activity = DiagnosticsConfig.Source.StartActivity("MessageConsumer.Consume", ActivityKind.Consumer, parentContext);
+        activity.EnrichWithContext<T>(messageContext);
+
+        return activity;
     }
 
     public MessageContext? MessageContext { get; set; }

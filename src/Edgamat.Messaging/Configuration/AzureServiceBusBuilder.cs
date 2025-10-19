@@ -79,7 +79,7 @@ public class AzureServiceBusBuilder
         _services.AddSingleton(settings);
 
         // Register enabled consumers from configuration
-        foreach (var queue in settings.Queues.Where(q => q.Enabled))
+        foreach (var queue in settings.Queues.Where(q => q.Enabled && !string.IsNullOrWhiteSpace(q.ConsumerType)))
         {
             var consumerType = Type.GetType(queue.ConsumerType)
                 ?? throw new AzureServiceBusConfigurationException($"Could not load consumer type '{queue.ConsumerType}' for queue '{queue.QueueName}'");
@@ -88,7 +88,7 @@ public class AzureServiceBusBuilder
         }
 
         // Register enabled consumers from configuration
-        foreach (var subscription in settings.Subscriptions.Where(q => q.Enabled))
+        foreach (var subscription in settings.Subscriptions.Where(s => s.Enabled && !string.IsNullOrWhiteSpace(s.ConsumerType)))
         {
             var consumerType = Type.GetType(subscription.ConsumerType)
                 ?? throw new AzureServiceBusConfigurationException($"Could not load consumer type '{subscription.ConsumerType}' for subscription '{subscription.SubscriptionName}'");

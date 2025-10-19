@@ -4,6 +4,19 @@
     <TargetFramework>net9.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <!-- NuGet packaging properties -->
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <PackageId>Edgamat.Messaging</PackageId>
+    <Version>1.0.1</Version>
+    <Authors>edgamat</Authors>
+    <Company>Edgamat</Company>
+    <Description>Small .NET library exposing a message-consumer contract for Azure Service Bus hosts.</Description>
+    <PackageTags>messaging;servicebus;azure;consumer;dotnet</PackageTags>
+    <RepositoryUrl>https://github.com/edgamat/Edgamat.Messaging</RepositoryUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/edgamat/Edgamat.Messaging</PackageProjectUrl>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
   </PropertyGroup>
 
   <ItemGroup>
