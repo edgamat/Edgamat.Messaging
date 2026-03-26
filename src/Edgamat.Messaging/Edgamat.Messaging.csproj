@@ -6,6 +6,7 @@
     <Nullable>enable</Nullable>
     <!-- NuGet packaging properties -->
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageId>Edgamat.Messaging</PackageId>
     <Version>1.0.1</Version>
     <Authors>edgamat</Authors>
@@ -19,6 +20,10 @@
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
   </PropertyGroup>
 
+  <ItemGroup>
+    <None Include="../../README.md" Pack="true" PackagePath="\"/>
+  </ItemGroup>
+  
   <ItemGroup>
     <PackageReference Include="Azure.Messaging.ServiceBus" Version="7.20.1" />
     <PackageReference Include="Microsoft.Extensions.Azure" Version="1.12.0" />
